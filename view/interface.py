@@ -2,20 +2,26 @@ import wx
 import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+from matplotlib.widgets import Button
 from PIL import Image
+from image_panel import ImagePanel
 
+# Interface principal do programa, mostrando os menus
 class Interface(wx.Frame):
+
     def __init__(self, *args, **kwargs):
         super(Interface, self).__init__(*args, **kwargs)
         self.imagePanel = None
         self.init_ui()
-        # Criando o menu principal
-        self.create_main_menu()
+
 
     def init_ui(self):
         self.SetSize((800,600))
         self.SetTitle('Visualizador de Células')
 
+        # Criando o menu principal
+        self.create_main_menu()
+        
     def create_main_menu(self):
         self.menubar = wx.MenuBar()
         fileMenu = wx.Menu()
@@ -33,6 +39,24 @@ class Interface(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_open_file, fileItem)
         self.Bind(wx.EVT_MENU, self.on_quit, closeItem)
 
+
+    def create_image_menu(self):
+        viewMenu = wx.Menu()
+
+        # Opções do Menu de visualização
+        viewSegmentedImage = viewMenu.Append(wx.NewId(), '&Segmentar Imagem', 'Segmenta a imagem')
+        caracterizeNucleus = viewMenu.Append(wx.NewId(), '&Caracterizar Nucleos', 'Caracteriza o nucleo a partir dos descritores de forma')
+        classificateImageNucleus = viewMenu.Append(wx.NewId(), '&Classificar Nucleos', 'Classifica os nucleos da imagem')
+
+        self.menubar.Append(viewMenu, '&Visualização')
+
+        # Eventos das opções do menu
+        self.Bind(wx.EVT_MENU, self.imagePanel.on_image_selected, viewSegmentedImage)
+        self.Bind(wx.EVT_MENU, self.imagePanel.on_caracterize_nucleus_selected, caracterizeNucleus)
+        self.Bind(wx.EVT_MENU, self.imagePanel.on_classificate_image_nucleus_selected, classificateImageNucleus)
+
+        self.SetMenuBar(self.menubar)
+
     # Arquivo > Sair - Sai do programa
     def on_quit(self, e):
         self.Close()
@@ -40,7 +64,7 @@ class Interface(wx.Frame):
     # Ao selecionar Arquivo > Abrir...
     def on_open_file(self, e):
         self.dirname = "./"
-        dialog = wx.FileDialog(self, "Abrir a imagem", self.dirname, "", "png and jpg files (*.png;*.jpg;)|*.png;*.jpg;", wx.FC_OPEN)
+        dialog = wx.FileDialog(self, "Abrir o arquivo", self.dirname, "", "png and jpg files (*.png;*.jpg;)|*.png;*.jpg;", wx.FC_OPEN)
 
         if dialog.ShowModal() == wx.ID_OK:
             directory, filename = dialog.GetDirectory(), dialog.GetFilename()
@@ -51,25 +75,23 @@ class Interface(wx.Frame):
 
         dialog.Destroy()
 
-    def image_panel(self, filename):
-        figure = Figure()
-        axes = figure.add_subplot(111)
-        img = Image.open(filename)
-        img_array = np.array(img)
-        axes.imshow(img_array)
-        return FigureCanvas(self, -1, figure)
 
-
-    # Carrega a imagem e mostra no painel
-    def load_image(self, filename)->None:        
+    # Carrega a imagem sísmica e mostra no painel
+    def load_image(self, filename)->None:
+        self.create_main_menu()
+        
+        # Fecha o painel aberto anteriormente
+        if (self.imagePanel):
+            self.imagePanel.Destroy()
+        
         # Criando o painel da imagem
-        imagePanel = self.image_panel(filename)
+        self.imagePanel = ImagePanel(self, filename)
 
-        self.sizer = wx.BoxSizer()
-        self.sizer.Add(imagePanel, 1, wx.EXPAND | wx.ALL)
-        self.SetSizer(self.sizer)
+        sizer = wx.BoxSizer()
+        sizer.Add(self.imagePanel, 1, wx.EXPAND | wx.ALL)
+        self.SetSizer(sizer)
         self.Layout()
-        # self.create_image_menu()
+        self.create_image_menu()
 
 
 if __name__ == '__main__':
