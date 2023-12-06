@@ -47,6 +47,12 @@ class Interface(wx.Frame):
         viewSegmentedImage = viewMenu.Append(wx.NewId(), '&Segmentar Imagem', 'Segmenta a imagem')
         caracterizeNucleus = viewMenu.Append(wx.NewId(), '&Caracterizar Nucleos', 'Caracteriza o nucleo a partir dos descritores de forma')
         classificateImageNucleus = viewMenu.Append(wx.NewId(), '&Classificar Nucleos', 'Classifica os nucleos da imagem')
+        zoomInItem = viewMenu.Append(wx.NewId(), '&Zoom In', 'Increase image size')
+        zoomOutItem = viewMenu.Append(wx.NewId(), '&Zoom Out', 'Reset image zoom')
+        self.Bind(wx.EVT_MENU, self.on_zoom_out, zoomOutItem)
+        self.Bind(wx.EVT_MENU, self.on_zoom_in, zoomInItem)
+
+    
 
         self.menubar.Append(viewMenu, '&Visualização')
 
@@ -60,6 +66,16 @@ class Interface(wx.Frame):
     # Arquivo > Sair - Sai do programa
     def on_quit(self, e):
         self.Close()
+
+    def on_zoom_in(self, e):
+        self.imagePanel.toggle_zoom_mode()
+
+
+    def on_zoom_out(self, e):
+        """ Event handler for the 'Zoom Out' button """
+        self.imagePanel.reset_zoom()
+
+    
 
     # Ao selecionar Arquivo > Abrir...
     def on_open_file(self, e):
