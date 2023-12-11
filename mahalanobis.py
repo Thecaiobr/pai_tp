@@ -1,27 +1,55 @@
+import os
+import pandas as pd
 import numpy as np
-from scipy.spatial.distance import mahalanobis
+from sklearn.covariance import LedoitWolf
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
 
+def mahalanobis_distance(x, mean, inv_covariance_matrix):
+    x_minus_mean = x - mean
+    return np.sqrt(np.dot(np.dot(x_minus_mean, inv_covariance_matrix), x_minus_mean.T))
 
-#Classe negativa e nçao negativa, substituir dados logico
-class_A_data = np.array([[1, 2], [2, 1], [1.5, 1.5], [2, 2.5], [1.2, 1.8]])
-class_B_data = np.array([[4, 5], [5, 4], [4.5, 4.5], [3.5, 4.2], [4.8, 3.7]])
+def predict_mahalanobis(data, multiclass=False):
+    classes = data["bethesda_system"].unique()
 
+    class_covariance_matrices = {}
+    class_means = {}
+    for c in classes:
+        class_data = data[data["bethesda_system"] == c].drop(["bethesda_system", "original_filename", "cell_id"], axis=1)
+        covariance_matrix = LedoitWolf().fit(class_data).covariance_
+        class_covariance_matrices[c] = np.linalg.inv(covariance_matrix)
+        class_means[c] = np.mean(class_data, axis=0)
 
-mean_A = np.mean(class_A_data, axis=0)
-cov_A = np.cov(class_A_data, rowvar=False)
-inv_cov_A = np.linalg.inv(cov_A)
+    predicted_labels = []
+    for _, sample in data.iterrows():
+        distances = {c: mahalanobis_distance(sample[3:], class_means[c], class_covariance_matrices[c]) for c in classes}
+        predicted_label = min(distances, key=distances.get)
+        predicted_labels.append(predicted_label)
 
-mean_B = np.mean(class_B_data, axis=0)
-cov_B = np.cov(class_B_data, rowvar=False)
-inv_cov_B = np.linalg.inv(cov_B)
+    # Avaliação da acurácia
+    accuracy = accuracy_score(data["bethesda_system"], predicted_labels)
+    print(f'Acurácia: {accuracy * 100:.2f}%')
 
-predictions = [] # Data_test são os dados de treinamento em coordenadas
-for point in data_test:
-    distance_A = mahalanobis(point, mean_A, inv_cov_A)
-    distance_B = mahalanobis(point, mean_B, inv_cov_B)
-    predicted_class = "A" if distance_A < distance_B else "B"
-    predictions.append(predicted_class)
+    conf_matrix = confusion_matrix(data["bethesda_system"], predicted_labels, labels=classes)
+    df = pd.DataFrame(conf_matrix, index=classes, columns=classes)
 
-# Calculando acurácia
-correct_predictions = sum(pred == true for pred, true in zip(predictions, labels_test))
-accuracy = correct_predictions / len(data_test)
+    # Criação do diretório se não existir
+    os.makedirs('confusion_matriz_mahalanobis', exist_ok=True)
+
+    if multiclass:
+        df.to_csv('confusion_matriz_mahalanobis/matriz_confusao_multiclass.csv', index=False)
+    else:
+        df.to_csv('confusion_matriz_mahalanobis/matriz_confusao_binary.csv', index=False)
+
+def main():
+    characteristics_df = pd.read_csv('characteristics.csv')
+    train, test = train_test_split(characteristics_df, test_size=0.2, random_state=45, shuffle=True, stratify=characteristics_df['bethesda_system'])
+
+    print("Classificação Binária:")
+    predict_mahalanobis(train)
+    
+    print("\nClassificação Multiclasse:")
+    predict_mahalanobis(test, multiclass=True)
+
+if __name__ == "__main__":
+    main()
