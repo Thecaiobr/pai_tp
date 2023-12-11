@@ -49,15 +49,13 @@ class Interface(wx.Frame):
         classificateImageNucleus = viewMenu.Append(wx.NewId(), '&Classificar Nucleos', 'Classifica os nucleos da imagem')
         zoomInItem = viewMenu.Append(wx.NewId(), '&Zoom In', 'Increase image size')
         zoomOutItem = viewMenu.Append(wx.NewId(), '&Zoom Out', 'Reset image zoom')
-        self.Bind(wx.EVT_MENU, self.on_zoom_out, zoomOutItem)
-        self.Bind(wx.EVT_MENU, self.on_zoom_in, zoomInItem)
-
-    
 
         self.menubar.Append(viewMenu, '&Visualização')
 
         # Eventos das opções do menu
-        self.Bind(wx.EVT_MENU, self.imagePanel.on_image_selected, viewSegmentedImage)
+        self.Bind(wx.EVT_MENU, self.on_zoom_out, zoomOutItem)
+        self.Bind(wx.EVT_MENU, self.on_zoom_in, zoomInItem)
+        self.Bind(wx.EVT_MENU, self.imagePanel.on_segment_image, viewSegmentedImage)
         self.Bind(wx.EVT_MENU, self.imagePanel.on_caracterize_nucleus_selected, caracterizeNucleus)
         self.Bind(wx.EVT_MENU, self.imagePanel.on_classificate_image_nucleus_selected, classificateImageNucleus)
 
