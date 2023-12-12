@@ -186,10 +186,16 @@ class ImagePanel(wx.Panel):
         b_model = tf.keras.models.load_model('binary_weights.keras', compile=False)
         b_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics= ['accuracy'])
 
+        counter = 0
+
         for image in self.images_list:
             c_model_result, c_model_percentage = self.complete_model(c_model, image)
             b_model_result, b_model_percentage = self.binary_model(b_model, image)
             print(f'Complete model: {c_model_result}, Binary model: {b_model_result}')
+            # Assuming bethesda_system is the value to add
+            self.characteristics_list = [list(line) for line in self.characteristics_list]
+            self.characteristics_list[counter].append(c_model_result)
+            self.characteristics_list = [tuple(line) for line in self.characteristics_list]
 
             width = 1200
             height = 1200
@@ -219,6 +225,7 @@ class ImagePanel(wx.Panel):
             # Exibir a imagem
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+            counter += 1
 
     def preprocess_image(self, image):
         img = image.resize((224, 224))
@@ -247,21 +254,41 @@ class ImagePanel(wx.Panel):
         return class_labels[tf.argmax(score)], predictions[0,tf.argmax(score)]
     
     def on_scatter_plot(self, e=None):
+        # Load the data
+        for i in range(len(self.characteristics_list)):
+             self.characteristics_list[i] = [round(val, 2) if isinstance(val, float) else val for val in self.characteristics_list[i]]
         data = np.array(self.characteristics_list)
-        compacity = data[:, 1]  # Assuming compacity is the second column
-        area = data[:, 2]  # Assuming area is the third column
-        bethesda_system = data[:, 3]  # Assuming bethesda_system is the fourth column
+        compacity = data[:, 3]
+        area = data[:, 2]
+        bethesda_system = data[:, 4]
+
+        # Create a sorted copy of the data for the scatter plot
+        scatter_data = sorted(zip(area, compacity, bethesda_system))
+
+        # Extract the sorted area, compacity, and bethesda_system
+        area, compacity, bethesda_system = zip(*scatter_data)
+
+        # Map bethesda_system values to colors
+        color_dict = {
+            'Negative for intraepithelial lesion': 'red',
+            'asc-us': 'blue',
+            'lsil': 'green',
+            'asc-h': 'yellow',
+            'hsil': 'purple',
+            'scc': 'orange'
+        } 
+        colors = [color_dict[val] for val in bethesda_system]
 
         # Create the scatter plot
         fig, ax = plt.subplots()
-        scatter = ax.scatter(compacity, area, c=bethesda_system, cmap='viridis')
-        ax.set_xlabel('Compacity')
-        ax.set_ylabel('Area')
+        scatter = ax.scatter(area, compacity, c=colors) 
+        ax.set_xlabel('Area')
+        ax.set_ylabel('Compacity')
         ax.set_title('Scatter Plot')
 
-        # Create a legend for the colors
-        legend1 = ax.legend(*scatter.legend_elements(), title="Bethesda System")
-        ax.add_artist(legend1)
+        # Create a custom legend for the colors
+        patches = [mpatches.Patch(color=color, label=label) for label, color in color_dict.items()]
+        ax.legend(handles=patches, title="Bethesda System")
 
         # Display the scatter plot
         plt.show()
