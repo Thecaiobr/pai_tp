@@ -82,20 +82,20 @@ class ImagePanel(wx.Panel):
         return image
     
     def on_segment_image(self, e=None):
-        linhas_filtradas = self.find_circles()
+        filtered_lines = self.find_circles()
                         
         self.characteristics_list = []  # Lista para armazenar os valores
         self.images_list = []
         index = 0
         # Passando por todos os núcleos daquela imagem
-        for row in linhas_filtradas[0]:
+        for row in filtered_lines[0]:
             cropped_image = self.crop_image(row[0], row[1])
             cropped_image_np = self.crop_image(row[0], row[1], True)
-            # cropped_image_np = cv2.imread(cropped_image, cv2.IMREAD_GRAYSCALE)
                 
             # Aplicar a limiarização
             centro_y, centro_x = cropped_image_np.shape[0] // 2, cropped_image_np.shape[1] // 2
             blurred_image = cv2.GaussianBlur(cropped_image_np, (5, 5), 0)
+
             # limiar baseado no ponto central
             valor_pixel_central = np.round(blurred_image[centro_y, centro_x] * 1.37).astype('int')
             _, img_thresholded = cv2.threshold(blurred_image, valor_pixel_central, 255, cv2.THRESH_BINARY)
@@ -111,7 +111,7 @@ class ImagePanel(wx.Panel):
             centro_x, centro_y = cropped_image_np.shape[1] // 2, cropped_image_np.shape[0] // 2
             dist_minima = float('inf')
             contorno_central = None
-            # Encontrando contorno mais próximo do centro
+            # Contorno mais próximo do centro
             for contour in contours:
                 M = cv2.moments(contour)
                 if M["m00"] != 0:
@@ -135,13 +135,12 @@ class ImagePanel(wx.Panel):
 
                 compacity = (perimeter ** 2) / (4 * np.pi * area) if area != 0 else 0
 
-                circularidade = (4 * np.pi * area) / (perimeter ** 2) if perimeter != 0 else 0
+                circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter != 0 else 0
 
-                if len(contorno_central) >= 5:  # Necessário para ajustar uma elipse
+                # Necessário para ajustar uma elipse
+                if len(contorno_central) >= 5:  
                     (x, y), (eixo_menor, eixo_maior), angle = cv2.fitEllipse(contorno_central)
                     excentricity = np.sqrt(1 - (eixo_menor / eixo_maior) ** 2) if eixo_maior != 0 else 0
-                else:
-                    excentricity = 0
 
                 cv2.circle(cropped_image_np, (centro_x, centro_y), 2, (255, 0, 0), -1)
 
@@ -162,9 +161,7 @@ class ImagePanel(wx.Panel):
 
             # Create second line of subtitle
             subtitle2 = np.zeros((subtitle_height, resized_img.shape[1]), dtype=np.uint8)
-            cv2.putText(subtitle2, f'Circularidade: {round(circularidade,2)}, Excentricidade: {round(excentricity,2)}', (10, 40), font, 1, (255), 2, cv2.LINE_AA)
-
-            # f'Área: {area}, Perímetro: {perimeter}, Compacidade: {compacity}, Circularidade: {circularidade}, Excentricidade: {excentricity}'
+            cv2.putText(subtitle2, f'Circularidade: {round(circularity,2)}, Excentricidade: {round(excentricity,2)}', (10, 40), font, 1, (255), 2, cv2.LINE_AA)
             img_with_subtitle = np.vstack((resized_img, subtitle1, subtitle2))
             cv2.imshow('Image', img_with_subtitle)
 
