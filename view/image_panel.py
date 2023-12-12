@@ -259,7 +259,9 @@ class ImagePanel(wx.Panel):
              self.characteristics_list[i] = [round(val, 2) if isinstance(val, float) else val for val in self.characteristics_list[i]]
         data = np.array(self.characteristics_list)
         compacity = data[:, 3]
+        compacity = compacity.astype(np.cfloat)
         area = data[:, 2]
+        area = area.astype(np.cfloat)
         bethesda_system = data[:, 4]
 
         # Create a sorted copy of the data for the scatter plot
