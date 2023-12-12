@@ -45,8 +45,8 @@ class Interface(wx.Frame):
 
         # Opções do Menu de visualização
         viewSegmentedImage = viewMenu.Append(wx.NewId(), '&Segmentar Imagem', 'Segmenta a imagem')
-        caracterizeNucleus = viewMenu.Append(wx.NewId(), '&Caracterizar Nucleos', 'Caracteriza o nucleo a partir dos descritores de forma')
         classificateImageNucleus = viewMenu.Append(wx.NewId(), '&Classificar Nucleos', 'Classifica os nucleos da imagem')
+        showScatterPlot = viewMenu.Append(wx.NewId(), '&Grafico de dispersao', 'Mostrar grafico de dispersao da compacidade')
         zoomInItem = viewMenu.Append(wx.NewId(), '&Zoom In', 'Increase image size')
         zoomOutItem = viewMenu.Append(wx.NewId(), '&Zoom Out', 'Reset image zoom')
 
@@ -56,8 +56,8 @@ class Interface(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_zoom_out, zoomOutItem)
         self.Bind(wx.EVT_MENU, self.on_zoom_in, zoomInItem)
         self.Bind(wx.EVT_MENU, self.imagePanel.on_segment_image, viewSegmentedImage)
-        self.Bind(wx.EVT_MENU, self.imagePanel.on_caracterize_nucleus_selected, caracterizeNucleus)
         self.Bind(wx.EVT_MENU, self.imagePanel.on_classificate_image_nucleus_selected, classificateImageNucleus)
+        self.Bind(wx.EVT_MENU, self.imagePanel.on_scatter_plot, showScatterPlot)
 
         self.SetMenuBar(self.menubar)
 

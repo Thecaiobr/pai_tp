@@ -11,8 +11,9 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 from scipy.linalg import pinv
 from scipy.spatial.distance import mahalanobis
-
-
+import tensorflow as tf
+import matplotlib.patches as mpatches
+import csv
 
 class ImagePanel(wx.Panel):
     def __init__(self, parent, filename):
@@ -69,14 +70,16 @@ class ImagePanel(wx.Panel):
         circles = cv2.HoughCircles(image_filt, cv2.HOUGH_GRADIENT, dp=1, minDist=20, param1=50, param2=30, minRadius=5, maxRadius=30)
         return circles
     
-    def crop_image(self, x, y):
+    def crop_image(self, x, y, gray=False):
         left = x - 50
         right = x + 50
         top = y - 50
         bottom = y + 50
         image = self.data.crop((left, top, right, bottom))
-        gray_image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-        return gray_image
+        if gray:
+            gray_image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
+            return gray_image
+        return image
     
     def on_segment_image(self, e=None):
         linhas_filtradas = self.find_circles()
@@ -86,7 +89,8 @@ class ImagePanel(wx.Panel):
         index = 0
         # Passando por todos os núcleos daquela imagem
         for row in linhas_filtradas[0]:
-            cropped_image_np = self.crop_image(row[0], row[1])
+            cropped_image = self.crop_image(row[0], row[1])
+            cropped_image_np = self.crop_image(row[0], row[1], True)
             # cropped_image_np = cv2.imread(cropped_image, cv2.IMREAD_GRAYSCALE)
                 
             # Aplicar a limiarização
@@ -144,7 +148,7 @@ class ImagePanel(wx.Panel):
             
             # Adicione os valores à lista
             self.characteristics_list.append((index, excentricity, area, compacity))
-            self.images_list.append(cropped_image_np)
+            self.images_list.append(cropped_image)
 
             width = 1200
             height = 1200
@@ -168,13 +172,99 @@ class ImagePanel(wx.Panel):
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             index += 1
-
-    def on_caracterize_nucleus_selected(self, e=None):
-        pass
+        with open('images_characteristics.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            # Write column headers
+            writer.writerow(['index', 'excentricity', 'area', 'compacity'])
+            # Write data
+            writer.writerows(self.characteristics_list)
 
     def on_classificate_image_nucleus_selected(self, e=None):
-        pass
+        c_model = tf.keras.models.load_model('6_weights.keras', compile=False)
+        c_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+        b_model = tf.keras.models.load_model('binary_weights.keras', compile=False)
+        b_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics= ['accuracy'])
+
+        for image in self.images_list:
+            c_model_result, c_model_percentage = self.complete_model(c_model, image)
+            b_model_result, b_model_percentage = self.binary_model(b_model, image)
+            print(f'Complete model: {c_model_result}, Binary model: {b_model_result}')
+
+            width = 1200
+            height = 1200
+            dim = (width, height)
+            resized_img = cv2.resize(np.array(image), dim, interpolation = cv2.INTER_AREA)
+
+            subtitle_height = 50
+            font = cv2.FONT_HERSHEY_SIMPLEX
+
+            subtitle1 = np.zeros((subtitle_height, resized_img.shape[1]), dtype=np.uint8)
+            cv2.putText(subtitle1, f'Complete model: {c_model_result}, Acuracia: {c_model_percentage}', (10, 40), font, 1, (255), 2, cv2.LINE_AA)
+            subtitle1 = subtitle1.reshape(*subtitle1.shape, 1)  # Add an extra dimension to 'subtitle'
+            # Convert the grayscale image to a 3-channel image
+            subtitle1 = cv2.cvtColor(subtitle1, cv2.COLOR_GRAY2BGR)
+
+            subtitle2 = np.zeros((subtitle_height, resized_img.shape[1]), dtype=np.uint8)
+            cv2.putText(subtitle2, f'Binary model: {b_model_result}, Acuracia: {b_model_percentage}', (10, 40), font, 1, (255), 2, cv2.LINE_AA)
+            subtitle2 = subtitle2.reshape(*subtitle2.shape, 1)  # Add an extra dimension to 'subtitle'
+            # Convert the grayscale image to a 3-channel image
+            subtitle2 = cv2.cvtColor(subtitle2, cv2.COLOR_GRAY2BGR)
+
+            # Now you can combine 'resized_img' and 'subtitle1'
+            combined = np.vstack((resized_img, subtitle1, subtitle2))
+
+            cv2.imshow('Image', combined)
+
+            # Exibir a imagem
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+    def preprocess_image(self, image):
+        img = image.resize((224, 224))
+        img_array = tf.keras.preprocessing.image.img_to_array(img)
+        img_array = tf.expand_dims(img_array, 0)
+        return img_array
+
+    def complete_model(self, loaded_model, image, e=None):
+        # Preprocess the image
+        img_array = self.preprocess_image(image)
+
+        # Make predictions
+        predictions = loaded_model.predict(img_array)
+        class_labels = ['asc-h','asc-us','hsil','lsil','Negative for intraepithelial lesion','scc']
+        score = tf.nn.softmax(predictions[0])
+        return class_labels[tf.argmax(score)], predictions[0,tf.argmax(score)]
+
+    def binary_model(self, loaded_model, image, e=None):
+        # Preprocess the image
+        img_array = self.preprocess_image(image)
+
+        # Make predictions
+        predictions = loaded_model.predict(img_array)
+        class_labels = ['Negative for intraepithelial lesion', 'Positive']
+        score = tf.nn.softmax(predictions[0])
+        return class_labels[tf.argmax(score)], predictions[0,tf.argmax(score)]
+    
+    def on_scatter_plot(self, e=None):
+        data = np.array(self.characteristics_list)
+        compacity = data[:, 1]  # Assuming compacity is the second column
+        area = data[:, 2]  # Assuming area is the third column
+        bethesda_system = data[:, 3]  # Assuming bethesda_system is the fourth column
+
+        # Create the scatter plot
+        fig, ax = plt.subplots()
+        scatter = ax.scatter(compacity, area, c=bethesda_system, cmap='viridis')
+        ax.set_xlabel('Compacity')
+        ax.set_ylabel('Area')
+        ax.set_title('Scatter Plot')
+
+        # Create a legend for the colors
+        legend1 = ax.legend(*scatter.legend_elements(), title="Bethesda System")
+        ax.add_artist(legend1)
+
+        # Display the scatter plot
+        plt.show()
 
     def zoom_in(self, factor=1.1):
         """ Zoom into the image """
